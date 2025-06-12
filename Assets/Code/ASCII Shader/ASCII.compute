@@ -37,49 +37,55 @@ int FindClosestGlyph(float averageGrayscale)
 }
 
 
+groupshared float4 sharedAverageColor;
+groupshared int sharedSelectedGlyph;
+
 [numthreads(16,16,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void CSMain (uint3 id : SV_DispatchThreadID, uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
 {
-    int blockX = (id.x / GLYPH_SIZE) * GLYPH_SIZE;
-    int blockY = (id.y / GLYPH_SIZE) * GLYPH_SIZE;
-    
-    float totalGrayscale = 0.0;
-    float4 averageColor = 1.0;
-    
-    for (int y = 0; y < GLYPH_SIZE; y++)
+    int blockX = groupId.x * GLYPH_SIZE;
+    int blockY = groupId.y * GLYPH_SIZE;
+
+    if (groupThreadId.x == 0 && groupThreadId.y == 0)
     {
-        for (int x = 0; x < GLYPH_SIZE; x++)
+        float totalGrayscale = 0.0;
+        float4 averageColor = 0.0;
+
+        for (int y = 0; y < GLYPH_SIZE; y++)
         {
-            int pixelX = blockX + x;
-            int pixelY = blockY + y;
-            
-            if (pixelX < textureWidth && pixelY < textureHeight)
+            for (int x = 0; x < GLYPH_SIZE; x++)
             {
-                float4 color = cameraTexture[int2(pixelX, pixelY)];
-                averageColor += color;
-                totalGrayscale += CalculateGrayscale(color);
+                int pixelX = blockX + x;
+                int pixelY = blockY + y;
+
+                if (pixelX < textureWidth && pixelY < textureHeight)
+                {
+                    float4 color = cameraTexture[int2(pixelX, pixelY)];
+                    averageColor += color;
+                    totalGrayscale += CalculateGrayscale(color);
+                }
             }
         }
+        int numPixels = GLYPH_SIZE * GLYPH_SIZE;
+        float averageGrayscale = (totalGrayscale / numPixels) * (1 - contrast);
+        averageColor /= numPixels;
+
+        sharedSelectedGlyph = FindClosestGlyph(averageGrayscale);
+        sharedAverageColor = averageColor;
     }
-    int numPixels = GLYPH_SIZE * GLYPH_SIZE;
-    float averageGrayscale = (totalGrayscale / (numPixels)) * (1 - contrast);
-    averageColor = float4(averageColor.x / numPixels, averageColor.y / numPixels, averageColor.z / numPixels, averageColor.w / numPixels);
-    
-    int selectedGlyphIndex = FindClosestGlyph(averageGrayscale);
-    
-    for (int y2 = 0; y2 < GLYPH_SIZE; y2++)
+
+    GroupMemoryBarrierWithGroupSync();
+
+    float4 averageColor = sharedAverageColor;
+    int selectedGlyphIndex = sharedSelectedGlyph;
+
+    int pixelX = blockX + groupThreadId.x;
+    int pixelY = blockY + groupThreadId.y;
+
+    if (pixelX < textureWidth && pixelY < textureHeight)
     {
-        for (int x2 = 0; x2 < GLYPH_SIZE; x2++)
-        {
-            int pixelX = blockX + x2;
-            int pixelY = blockY + y2;
-            
-            if (pixelX < textureWidth && pixelY < textureHeight)
-            {
-                float4 glyphColor = glyphTextures.Load(int4(x2, y2, selectedGlyphIndex,0)) * averageColor;
-                outputTexture[int2(pixelX, pixelY)] = glyphColor;
-            }
-        }
+        float4 glyphColor = glyphTextures.Load(int4(groupThreadId.x, groupThreadId.y, selectedGlyphIndex,0)) * averageColor;
+        outputTexture[int2(pixelX, pixelY)] = glyphColor;
     }
-   
+
 }
