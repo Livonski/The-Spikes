@@ -19,6 +19,8 @@ public class CameraFollow : MonoBehaviour
             player = GameObject.FindGameObjectWithTag("Player").transform;
         Vector3 finalPosition = CalculatePosition();
         transform.position = Vector3.SmoothDamp(transform.position, finalPosition, ref velocity, smoothSpeed);
+        //TODO: better rotation
+        transform.rotation = player.rotation;
     }
 
     private Vector3 CalculatePosition()
@@ -43,6 +45,13 @@ public class CameraFollow : MonoBehaviour
         Vector3 targetPosition = new Vector3(player.position.x, player.position.y, player.position.z) + offset;
         Vector3 overshootPosition = targetPosition + (velocity * overshootAmount);
         return overshootPosition;
+    }
+
+    private Vector3 GetFollowingRotation()
+    {
+        Vector3 targetRotation = new Vector3(player.rotation.x, player.rotation.y, player.rotation.z);
+        Vector3 overshootRotation = targetRotation + (velocity * overshootAmount);
+        return overshootRotation;
     }
 
     public void ShakeCamera(float magnitude, float duration)
