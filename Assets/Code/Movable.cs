@@ -16,7 +16,7 @@ public class Movable : MonoBehaviour
 
     public void Rotate(float inputDirection)
     {
-        Vector3 rotationEulers = new Vector3(0, 1, 0) * inputDirection * _rotationSpeed;
+        Vector3 rotationEulers = new Vector3(0, 1, 0) * inputDirection * _rotationSpeed * Time.deltaTime;
         transform.Rotate(rotationEulers);
     }
 }
