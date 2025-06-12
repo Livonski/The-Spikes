@@ -9,9 +9,7 @@ public class ASCIIRenderer : MonoBehaviour
     [SerializeField] private ComputeShader _ASCIIShader;
 
     [SerializeField] private Camera _camera;
-    [SerializeField] private RenderTexture _renderTexture;
     [SerializeField] private RenderTexture _outputTexture;
-    [SerializeField] private Texture2D _cameraTexture;
 
     [SerializeField] private Font _font;
 
@@ -28,14 +26,11 @@ public class ASCIIRenderer : MonoBehaviour
     public void OnFontsGenerated()
     {
         InitializeGlyphTextureArray();
-        _outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGB32);
+        _resolution = new Vector2Int(Screen.width, Screen.height);
+
+        _outputTexture = new RenderTexture(_resolution.x, _resolution.y, 0, RenderTextureFormat.ARGB32);
         _outputTexture.enableRandomWrite = true;
         _outputTexture.Create();
-        _cameraTexture = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
-        _renderTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGB32);
-        _resolution = new Vector2Int(_renderTexture.width, _renderTexture.height);
-
-        _camera.targetTexture = _renderTexture;
 
         InitializeGlyphCoveragesBuffer();
         _ASCIIShader.SetTexture(0, "glyphTextures", _glyphTextureArray);
@@ -45,14 +40,12 @@ public class ASCIIRenderer : MonoBehaviour
         _ASCIIShader.SetFloat("contrast", _contrast);
     }
 
-    void Update()
-    {
-        RenderTexture.active = _renderTexture;
-        _cameraTexture.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
-        _cameraTexture.Apply();
-        RenderTexture.active = null;
 
-        _ASCIIShader.SetTexture(0, "cameraTexture", _cameraTexture);
+    private void OnRenderImage(RenderTexture src, RenderTexture dest)
+    {
+        EnsureOutputTexture(src);
+
+        _ASCIIShader.SetTexture(0, "cameraTexture", src);
         _ASCIIShader.SetTexture(0, "outputTexture", _outputTexture);
         _ASCIIShader.SetFloat("contrast", _contrast);
 
@@ -60,7 +53,10 @@ public class ASCIIRenderer : MonoBehaviour
         int threadGroupsY = Mathf.CeilToInt(_resolution.y / 16.0f);
         _ASCIIShader.Dispatch(0, threadGroupsX, threadGroupsY, 1);
 
-        ApplyOuputTexture();
+        if (_outputMaterial != null)
+            Graphics.Blit(_outputTexture, dest, _outputMaterial);
+        else
+            Graphics.Blit(_outputTexture, dest);
     }
 
     private void InitializeGlyphTextureArray()
@@ -96,11 +92,24 @@ public class ASCIIRenderer : MonoBehaviour
         _ASCIIShader.SetBuffer(0, "glyphCoverages", _glyphCoveragesBuffer);
     }
 
-    private void ApplyOuputTexture()
+    private void EnsureOutputTexture(RenderTexture source)
     {
-        if(_outputMaterial != null)
-            _outputMaterial.mainTexture = _outputTexture;
+        if (_outputTexture != null && _outputTexture.width == source.width && _outputTexture.height == source.height)
+            return;
+
+        if (_outputTexture != null)
+            _outputTexture.Release();
+
+        _outputTexture = new RenderTexture(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+        _outputTexture.enableRandomWrite = true;
+        _outputTexture.Create();
+
+        _resolution = new Vector2Int(source.width, source.height);
+        _ASCIIShader.SetInt("textureWidth", _resolution.x);
+        _ASCIIShader.SetInt("textureHeight", _resolution.y);
     }
+
+
 
     private void OnDestroy()
     {
@@ -108,5 +117,7 @@ public class ASCIIRenderer : MonoBehaviour
             Destroy(_glyphTextureArray);
         if (_glyphCoveragesBuffer != null)
             _glyphCoveragesBuffer.Release();
+        if (_outputTexture != null)
+            _outputTexture.Release();
     }
 }
