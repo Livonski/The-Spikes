@@ -18,7 +18,7 @@ public abstract class WorldFeature : MonoBehaviour
     private void SetTransform(Transform chunkTransform, int featureIndex)
     {
         _gameObject.transform.parent = chunkTransform;
-        _gameObject.transform.name = _data.name + " " + featureIndex;
+        _gameObject.transform.name = _data.GetName() + " " + featureIndex;
     }
 
     private void SetOffset()
