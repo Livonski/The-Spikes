@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 public class Font : MonoBehaviour
 {
@@ -64,29 +65,12 @@ public class Font : MonoBehaviour
         return coverage;
     }
 
-    //TODO: implement better sorting algorythm
     private Glyph[] SortGlyphs(Glyph[] glyph)
     {
-        for (int j = 0; j < glyph.Length; j++)
-        { 
-            for (int i = 0; i < glyph.Length - 1; i++)
-            {
-                if (glyph[i].coverage > glyph[i + 1].coverage)
-                {
-                    glyph = Swap(glyph, i, i + 1);
-                }
-            }
-        }
+        Array.Sort(glyph, (a, b) => a.coverage.CompareTo(b.coverage));
         return glyph;
     }
 
-    private Glyph[] Swap(Glyph[] arr, int a, int b)
-    {
-        Glyph tmp = arr[a];
-        arr[a] = arr[b];
-        arr[b] = tmp;
-        return arr;
-    }
 
     private void PrintDebugInfo()
     {
