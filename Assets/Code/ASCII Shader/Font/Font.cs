@@ -60,7 +60,7 @@ public class Font : MonoBehaviour
             if (c.r != 0)
                 nonBlankPixels++;
         }
-        coverage = nonBlankPixels / size + Random.Range(0f,0.01f);
+        coverage = nonBlankPixels / size + UnityEngine.Random.Range(0f,0.01f);
 
         return coverage;
     }
